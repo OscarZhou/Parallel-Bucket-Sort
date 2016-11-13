@@ -100,7 +100,7 @@ int main(int argc,char* argv[])
     int root = 0;
     if (myid == root) {
         /************* Populate the initial array with random number ***************************/
-        std::cout << "SEND " << myid << " : ";
+        //std::cout << "SEND " << myid << " : ";
         for(int i=0;i<size;i++)
         {
             data[i]=drand48()*(xmax-xmin-1)+xmin;
@@ -114,29 +114,29 @@ int main(int argc,char* argv[])
     /****************************************/
 
 
-    std::cout << "RECV " << myid << " : ";
+    //std::cout << "RECV " << myid << " : ";
     for (int i = 0; i < per_length; ++i) {
-        std::cout << per_data[i] << " ";
+        //std::cout << per_data[i] << " ";
     }
     std::cout << std::endl;
 
 
     /******************* Each process use bucket sort in their own data collection *********************/
-    int* sendflag = new int[numproc];
-    int* recvflag = new int[numproc];
+    int* sendcounts = new int[numproc];
+    int* recvcounts = new int[numproc];
 
     float *buckets = create_buckets(numproc, per_length);
-    bucket_sort(per_data, per_length ,xmin,xmax,numproc,buckets, sendflag);
+    bucket_sort(per_data, per_length ,xmin,xmax,numproc,buckets, sendcounts);
 
     std::cout << "AFTER SORT " << myid << " : ";
     for (int i = 0; i < per_length; ++i) {
-        std::cout << per_data[i] << " ";
+        //std::cout << per_data[i] << " ";
     }
     std::cout << std::endl;
 
-    std::cout << "SEND FLAG " << myid << " : ";
+    //std::cout << "SEND FLAG " << myid << " : ";
     for (int i = 0; i < per_length; ++i) {
-        std::cout << sendflag[i] << " ";
+        //std::cout << sendflag[i] << " ";
     }
     std::cout << std::endl;
     /****************************************/
@@ -144,30 +144,27 @@ int main(int argc,char* argv[])
 
 
     /******************* Reverse the position number of every partition range in diagonal direction among processors *********************/
-    MPI_Alltoall(sendflag, 1, MPI_INT, recvflag, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoall(sendcounts, 1, MPI_INT, recvcounts, 1, MPI_INT, MPI_COMM_WORLD);
     /****************************************/
 
     int recv_sdispls_length = 0;
-    std::cout << "RECV FLAG " << myid << " : ";
+    //std::cout << "RECV FLAG " << myid << " : ";
     for(int i=0; i<numproc; i++)
     {
-        std::cout << recvflag[i] << " ";
-        recv_sdispls_length += recvflag[i];
+        std::cout << recvcounts[i] << " ";
+        recv_sdispls_length += recvcounts[i];
     }
-    std::cout << "recv_sdispls_length "<<recv_sdispls_length << " ";
+    //std::cout << "recv_sdispls_length "<<recv_sdispls_length << " ";
     std::cout << std::endl;
 
 
     /******************* Create and load the arguments to alltoallv *********************/
-    int *sendcounts = new int[numproc];
-    int *recvcounts = new int[numproc];
+
     int *rdispls = new int[numproc];
     int *sdispls = new int[numproc];
 
     for(int i=0; i<numproc; i++)
     {
-        sendcounts[i] = numproc;
-        recvcounts[i] = myid;
         if(i == 0)
         {
             sdispls[i] = 0;
@@ -175,10 +172,10 @@ int main(int argc,char* argv[])
         }
         else
         {
-            sdispls[i] = sdispls[i-1] + sendflag[i-1];
-            rdispls[i] = rdispls[i-1] + recvflag[i-1];
+            sdispls[i] = sdispls[i-1] + sendcounts[i-1];
+            rdispls[i] = rdispls[i-1] + recvcounts[i-1];
         }
-        std::cout << sdispls[i] << " "<<rdispls[i]<<" "<<std::endl;
+        //std::cout << sdispls[i] << " "<<rdispls[i]<<" "<<std::endl;
     }
     /****************************************/
 
@@ -188,17 +185,10 @@ int main(int argc,char* argv[])
     float* per_recv_data = new float[recv_sdispls_length];
     MPI_Alltoallv(per_data, sendcounts, sdispls, MPI_FLOAT, per_recv_data, recvcounts, rdispls, MPI_FLOAT, MPI_COMM_WORLD);
 
-    std::cout << "AFTER REVERSAL" << myid << " : ";
-    for(int i=0; i<recv_sdispls_length; i++)
-    {
-        std::cout << per_recv_data[i] << " ";
-    }
-    std::cout << std::endl;
     qsort(&per_recv_data[0], recv_sdispls_length, sizeof(float), compare);
     /****************************************/
 
 
-    /*
     std::cout << "AFTER ALLTOALLV " << myid << " : ";
     for (int i = 0; i < recv_sdispls_length; ++i) {
         std::cout << per_recv_data[i] << " ";
@@ -207,43 +197,56 @@ int main(int argc,char* argv[])
 
 
 
-    /****************************************/
+    /******************* Gather the displacement number from all processor to master processor*********************/
+    int sendcounts_forgather = recv_sdispls_length;
+    int* recvcounts_forgather = new int[numproc];
+    MPI_Gather(&sendcounts_forgather, 1, MPI_INT,recvcounts_forgather, 1, MPI_INT, root,MPI_COMM_WORLD);
 
-    /*
-    int sendflag_forgather = recv_sdispls_length;
-    int* recvflag_forgather = new int[numproc];
-
-    MPI_Gather(&sendflag_forgather, 1, MPI_INT,recvflag_forgather, 1, MPI_INT, root,MPI_COMM_WORLD);
-
-    /****************************************/
-    /*
-    if (myid == root) {
-        /****************************************/
-        /*
-        MPI_Gatherv(per_recv_data, recv_sdispls_length, MPI_FLOAT, data, &size, recvflag_forgather, MPI_FLOAT, root, MPI_COMM_WORLD);
-        /****************************************/
-        /*
-        std::cout << "FINAL RESULT " << myid << " : ";
-        for (int i = 0; i < size; ++i) {
-            if(i%10 == 0)
-                std::cout << std::endl;
-            std::cout << data[i] << " ";
-
-        }
-
+    std::cout << "AFTER Gather " << myid << " : ";
+    for (int i = 0; i < numproc; ++i) {
+        std::cout << recvcounts_forgather[i] << " ";
     }
-    */
+    std::cout << std::endl;
+    /****************************************/
+
+
+    /******************* Create and load the arguments to gatherv *********************/
+
+    int *rdispls_v = new int[numproc];
+
+    for(int i=0; i<numproc; i++)
+    {
+        if(i == 0)
+        {
+            rdispls_v[i] = 0;
+        }
+        else
+        {
+            rdispls_v[i] = rdispls_v[i-1] + recvcounts_forgather[i-1];
+        }
+        std::cout << rdispls_v[i] << " "<<recvcounts_forgather[i]<<" "<<std::endl;
+    }
+    std::cout << std::endl;
+    /****************************************/
+    /*************** Gather the data from each processor to master processor *************************/
+    MPI_Gatherv(per_recv_data, recv_sdispls_length, MPI_FLOAT, data,  recvcounts_forgather, rdispls_v,MPI_FLOAT, root, MPI_COMM_WORLD);
+    /****************************************/
+
+    std::cout << "FINAL RESULT " << myid << " : ";
+    for (int i = 0; i < size; ++i) {
+        std::cout << data[i] << " ";
+    }
+    std::cout << std::endl;
 
     MPI::Finalize();
 
 
+    delete[] rdispls_v;
     delete[] sendcounts;
     delete[] recvcounts;
     delete[] rdispls;
     delete[] sdispls;
-    //delete[] recvflag_forgather;
-    delete[] sendflag;
-    delete[] recvflag;
+    delete[] recvcounts_forgather;
     delete[] data;
     delete[] per_data;
 }
