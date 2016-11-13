@@ -1,0 +1,10 @@
+#PBS -j oe -o bucketsort.stdout -l nodes=4:ppn=8 -q pp
+
+
+echo Read from $PBS_NODEFILE
+
+echo This job runs on these processors:
+
+echo `cat $PBS_NODEFILE`
+
+mpiexec -machinefile $PBS_NODEFILE -np 4 /home/s16242950/ass2/test/bucketsort 40 5 200

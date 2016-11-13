@@ -1,0 +1,10 @@
+#PBS -j oe -o alltoall.stdout -l nodes=4:ppn=8 -q pp
+
+
+echo Read from $PBS_NODEFILE
+
+echo This job runs on these processors:
+
+echo `cat $PBS_NODEFILE`
+
+mpiexec -machinefile $PBS_NODEFILE -np 5 /home/s16242950/mpi_examples/alltoall 100

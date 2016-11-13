@@ -1,0 +1,18 @@
+Read from /var/spool/torque/aux//10511.mighty.local
+This job runs on these processors:
+compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-1 compute-0-1 compute-0-1 compute-0-1 compute-0-1 compute-0-1 compute-0-1 compute-0-1
+I'm process 2 out of 5
+Before ID=2 :  11 12 13 14 15
+After  ID=2 :  3 8 13 18 23
+I'm process 3 out of 5
+Before ID=3 :  16 17 18 19 20
+After  ID=3 :  4 9 14 19 24
+I'm process 4 out of 5
+Before ID=4 :  21 22 23 24 25
+After  ID=4 :  5 10 15 20 25
+I'm process 0 out of 5
+Before ID=0 :  1 2 3 4 5
+After  ID=0 :  1 6 11 16 21
+I'm process 1 out of 5
+Before ID=1 :  6 7 8 9 10
+After  ID=1 :  2 7 12 17 22

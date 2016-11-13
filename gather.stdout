@@ -1,0 +1,11 @@
+Read from /var/spool/torque/aux//10526.mighty.local
+This job runs on these processors:
+compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-4 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-3 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-2 compute-0-1 compute-0-1 compute-0-1 compute-0-1 compute-0-1 compute-0-1 compute-0-1 compute-0-1
+SEND 0 : 0 
+RECV 0 : -1741594888 11109 -1741594888 11109 
+SEND 1 : 100 
+RECV 1 : 0 100 200 300 
+SEND 2 : 200 
+RECV 2 : -1050980616 11017 -1050980616 11017 
+SEND 3 : 300 
+RECV 3 : -658538760 11098 -658538760 11098 
