@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <math.h>
 #include "mpi.h"
 using namespace std;
 
@@ -14,7 +15,7 @@ float* create_buckets(int nbuckets, int nitems)
   int ntotal = nbuckets * nitems;
 
   // Pointer to an array of more pointers to each bucket
-  float* bucket = calloc(ntotal, sizeof(float*));
+  float* bucket = (float*)calloc(ntotal, sizeof(float*));
   for (i=0; i<ntotal; ++i) bucket[i] = 0;
 
   // return the address of the array of pointers to float arrays
@@ -22,8 +23,8 @@ float* create_buckets(int nbuckets, int nitems)
 }
 
 int compare(const void* x1, const void* x2) {
-  const float* f1 = x1;
-  const float* f2 = x2;
+  const float* f1 = (float*)x1;
+  const float* f2 = (float*)x2;
   float diff = *f1 - *f2;
 
   return (diff < 0) ? -1 : 1;
@@ -41,7 +42,7 @@ void bucket_sort(float *data, int ndata, float x1, float x2, int nbuckets,
   // The number of items thrown into each bucket. We would expect each
   // bucket to have a similar number of items, but they won't be
   // exactly the same. So we keep track of their numbers here.
-  int* nitems = malloc(nbuckets * sizeof(int));
+  int* nitems = (int*)malloc(nbuckets * sizeof(int));
   for (i = 0; i < nbuckets; ++i) nitems[i] = 0;
 
   // Toss the data items into the correct bucket
@@ -80,7 +81,7 @@ int main(int argc,char* argv[])
 {
     double t_start, t_start_p1, t_start_p2, t_end;
 
-    const long size = atol(argv[1]);  //the size of the array of data numbers
+    int size = atol(argv[1]);  //the size of the array of data numbers
     const float xmin = atof(argv[2]);
     const float xmax = atof(argv[3]);
 
@@ -88,7 +89,7 @@ int main(int argc,char* argv[])
     int myid = MPI::COMM_WORLD.Get_rank();
     int numproc = MPI::COMM_WORLD.Get_size();
     /****************************************/
-    const long per_length = size / numproc;
+    int per_length = size / numproc;
 
     float* data = new float[size];        //the array of the data
     float* per_data = new float[per_length];
@@ -125,7 +126,7 @@ int main(int argc,char* argv[])
     /****************************************/
 
     /****************************************/
-    MPI::COMM_WORLD.Alltoall(sendflag, numproc, MPI_INT, recvflag, numproc, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoall(sendflag, numproc, MPI_INT, recvflag, numproc, MPI_INT, MPI_COMM_WORLD);
 
     /****************************************/
 
@@ -137,7 +138,7 @@ int main(int argc,char* argv[])
     }
     /****************************************/
     float* per_recv_data = new float[per_length];
-    per_recv_data = MPI::COMM_WORLD.Alltoallv(per_data, per_length, sendflag, MPI_FLOAT, recv_sdispls_length, recvflag, MPI_FLOAT, MPI_COMM_WORLD);
+    MPI_Alltoallv(per_data, &per_length, sendflag, MPI_FLOAT, per_recv_data, &recv_sdispls_length, recvflag, MPI_FLOAT, MPI_COMM_WORLD);
     qsort(&per_recv_data[0], recv_sdispls_length, sizeof(float), compare);
     /****************************************/
 
@@ -151,15 +152,15 @@ int main(int argc,char* argv[])
 
 
     /****************************************/
-    int* sendflag_forgather[1] = {recv_sdispls_length};
+    int sendflag_forgather = recv_sdispls_length;
     int* recvflag_forgather = new int[numproc];
 
-    MPI::COMM_WORLD.Gather(sendflag_forgather, 1, MPI_INT, recvflag_forgather, 1, MPI_INT, root);
+    MPI_Gather(&sendflag_forgather, 1, MPI_INT,recvflag_forgather, 1, MPI_INT, root,MPI_COMM_WORLD);
 
     /****************************************/
     if (myid == root) {
         /****************************************/
-        data = MPI::COMM_WORLD.Gatherv(per_recv_data, recv_sdispls_length, MPI_FLOAT, size, recvflag_forgather, MPI_FLOAT, root, MPI_COMM_WORLD);
+        MPI_Gatherv(per_recv_data, recv_sdispls_length, MPI_FLOAT, data, &size, recvflag_forgather, MPI_FLOAT, root, MPI_COMM_WORLD);
         /****************************************/
         std::cout << "FINAL RESULT " << myid << " : ";
         for (int i = 0; i < size; ++i) {
