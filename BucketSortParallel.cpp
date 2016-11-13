@@ -71,7 +71,10 @@ void bucket_sort(float *data, int ndata, float x1, float x2, int nbuckets,
   }
   //memcpy(data,&bucket[i*ndata],nitems[i]*sizeof(float));
 
-  sendflag = nitems;
+
+  for (i = 0; i < nbuckets; ++i) {
+        sendflag[i] = nitems[i];
+  }
   // Don't need the number of items anymore
   free(nitems);
 
@@ -88,16 +91,15 @@ int main(int argc,char* argv[])
     MPI::Init(argc,argv);
     int myid = MPI::COMM_WORLD.Get_rank();
     int numproc = MPI::COMM_WORLD.Get_size();
-    /****************************************/
+    /**************** Create initial array and another array partitioned ************************/
     int per_length = size / numproc;
-
     float* data = new float[size];        //the array of the data
     float* per_data = new float[per_length];
     /****************************************/
 
     int root = 0;
     if (myid == root) {
-        /****************************************/
+        /************* Populate the initial array with random number ***************************/
         std::cout << "SEND " << myid << " : ";
         for(int i=0;i<size;i++)
         {
@@ -107,7 +109,7 @@ int main(int argc,char* argv[])
         std::cout << std::endl;
         /****************************************/
     }
-    /****************************************/
+    /****************** Send each partition to the correct slave process **********************/
     MPI::COMM_WORLD.Scatter(data, per_length, MPI_FLOAT, per_data, per_length, MPI_FLOAT, root);
     /****************************************/
 
@@ -117,33 +119,86 @@ int main(int argc,char* argv[])
         std::cout << per_data[i] << " ";
     }
     std::cout << std::endl;
-    /****************************************/
+
+
+    /******************* Each process use bucket sort in their own data collection *********************/
     int* sendflag = new int[numproc];
     int* recvflag = new int[numproc];
 
     float *buckets = create_buckets(numproc, per_length);
     bucket_sort(per_data, per_length ,xmin,xmax,numproc,buckets, sendflag);
+
+    std::cout << "AFTER SORT " << myid << " : ";
+    for (int i = 0; i < per_length; ++i) {
+        std::cout << per_data[i] << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "SEND FLAG " << myid << " : ";
+    for (int i = 0; i < per_length; ++i) {
+        std::cout << sendflag[i] << " ";
+    }
+    std::cout << std::endl;
     /****************************************/
 
-    /****************************************/
-    MPI_Alltoall(sendflag, numproc, MPI_INT, recvflag, numproc, MPI_INT, MPI_COMM_WORLD);
 
+
+    /******************* Reverse the position number of every partition range in diagonal direction among processors *********************/
+    MPI_Alltoall(sendflag, 1, MPI_INT, recvflag, 1, MPI_INT, MPI_COMM_WORLD);
     /****************************************/
 
     int recv_sdispls_length = 0;
+    std::cout << "RECV FLAG " << myid << " : ";
     for(int i=0; i<numproc; i++)
     {
+        std::cout << recvflag[i] << " ";
         recv_sdispls_length += recvflag[i];
+    }
+    std::cout << "recv_sdispls_length "<<recv_sdispls_length << " ";
+    std::cout << std::endl;
 
+
+    /******************* Create and load the arguments to alltoallv *********************/
+    int *sendcounts = new int[numproc];
+    int *recvcounts = new int[numproc];
+    int *rdispls = new int[numproc];
+    int *sdispls = new int[numproc];
+
+    for(int i=0; i<numproc; i++)
+    {
+        sendcounts[i] = numproc;
+        recvcounts[i] = myid;
+        if(i == 0)
+        {
+            sdispls[i] = 0;
+            rdispls[i] = 0;
+        }
+        else
+        {
+            sdispls[i] = sdispls[i-1] + sendflag[i-1];
+            rdispls[i] = rdispls[i-1] + recvflag[i-1];
+        }
+        std::cout << sdispls[i] << " "<<rdispls[i]<<" "<<std::endl;
     }
     /****************************************/
-    float* per_recv_data = new float[per_length];
-    MPI_Alltoallv(per_data, &per_length, sendflag, MPI_FLOAT, per_recv_data, &recv_sdispls_length, recvflag, MPI_FLOAT, MPI_COMM_WORLD);
+
+
+    /******************* Reverse the data of every partition range in diagonal direction among processors*********************/
+
+    float* per_recv_data = new float[recv_sdispls_length];
+    MPI_Alltoallv(per_data, sendcounts, sdispls, MPI_FLOAT, per_recv_data, recvcounts, rdispls, MPI_FLOAT, MPI_COMM_WORLD);
+
+    std::cout << "AFTER REVERSAL" << myid << " : ";
+    for(int i=0; i<recv_sdispls_length; i++)
+    {
+        std::cout << per_recv_data[i] << " ";
+    }
+    std::cout << std::endl;
     qsort(&per_recv_data[0], recv_sdispls_length, sizeof(float), compare);
     /****************************************/
 
 
-
+    /*
     std::cout << "AFTER ALLTOALLV " << myid << " : ";
     for (int i = 0; i < recv_sdispls_length; ++i) {
         std::cout << per_recv_data[i] << " ";
@@ -151,17 +206,23 @@ int main(int argc,char* argv[])
     std::cout << std::endl;
 
 
+
     /****************************************/
+
+    /*
     int sendflag_forgather = recv_sdispls_length;
     int* recvflag_forgather = new int[numproc];
 
     MPI_Gather(&sendflag_forgather, 1, MPI_INT,recvflag_forgather, 1, MPI_INT, root,MPI_COMM_WORLD);
 
     /****************************************/
+    /*
     if (myid == root) {
         /****************************************/
+        /*
         MPI_Gatherv(per_recv_data, recv_sdispls_length, MPI_FLOAT, data, &size, recvflag_forgather, MPI_FLOAT, root, MPI_COMM_WORLD);
         /****************************************/
+        /*
         std::cout << "FINAL RESULT " << myid << " : ";
         for (int i = 0; i < size; ++i) {
             if(i%10 == 0)
@@ -169,12 +230,18 @@ int main(int argc,char* argv[])
             std::cout << data[i] << " ";
 
         }
-    }
 
+    }
+    */
 
     MPI::Finalize();
 
-    delete[] recvflag_forgather;
+
+    delete[] sendcounts;
+    delete[] recvcounts;
+    delete[] rdispls;
+    delete[] sdispls;
+    //delete[] recvflag_forgather;
     delete[] sendflag;
     delete[] recvflag;
     delete[] data;
